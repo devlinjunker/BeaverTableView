@@ -9,6 +9,7 @@
 #import "AppDelegate.h"
 
 @implementation AppDelegate
+@synthesize window = _window;
 
 @synthesize window = _window;
 
