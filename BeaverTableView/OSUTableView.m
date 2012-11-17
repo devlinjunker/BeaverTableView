@@ -9,44 +9,60 @@
 #import "OSUTableView.h"
 #define PULL_HEIGHT self.rowHeight //This way the pull height can be changed as you change your row height
 
-//This is a private interface
+/* PRIVATE OSUTableView INTERFACE Implementation */
 @interface OSUTableView()
+ 
+    // Private Properties
+    @property (nonatomic, strong) NSIndexPath *indexOfAddedCell;
+    @property CGFloat addedRowHeight;   
+    @property CGPoint upperPointOfPinch; // Used to store pinch from previous call of pinch handler
 
-//Properties that are contained in here can only be used within this file
-@property (nonatomic, strong) NSIndexPath *indexOfAddedCell;
-@property CGFloat addedRowHeight;
-@property CGPoint upperPointOfPinch; //This is used to store pinch from previous call of pinch handler
+    // Private References Delegate & Datasource passed to us
+    // We will use calls to this cachedDelegate/cachedDataSource combo rather than the UITableView delegate/dataSource throughout this class
+    @property (nonatomic, assign) id <UITableViewDataSource> cachedDataSource;
+    @property (nonatomic, assign) id <UITableViewDelegate> cachedDelegate;
 
-//Hold private references to delegate/datasource passed to us
-//We will use calls to this osuDelegate/osuDataSource combo rather than the UITableView delegate/dataSource throughout this class
-@property (nonatomic, assign) id <UITableViewDataSource> osuDataSource;
-@property (nonatomic, assign) id <UITableViewDelegate> osuDelegate;
+    // Private Methods
+    -(void) _customInit;
+    -(void) _passSelector:(SEL)aSelector to:(id)aReciever;
+    -(void) _commitDisgardCell;
 
-//Private Methods
--(void) _customInit;
--(void) _passSelector:(SEL)aSelector to:(id)aReciever;
--(void) _commitDisgardCell;
-@end
+@end // End Private OSUTableView Interface Implementation
 
+
+/* BEGIN OSUTableView Implementation */
 @implementation OSUTableView
-@synthesize osuDataSource = _osuDataSource, osuDelegate = _osuDelegate, state = _state;
+
+
+// Synthesize DataSource, Delegate and State
+@synthesize cachedDataSource = _cachedDataSource, cachedDelegate = _cachedDelegate, state = _state;
+// Synthesize Private Properties
 @synthesize indexOfAddedCell = _indexOfAddedCell, addedRowHeight = _addedRowHeight, upperPointOfPinch = _upperPointOfPinch;
 
-//The following two methods are what get written by @synthesize: We are overwritting the setter method so we can save a copy for internal use
 
+// The following two methods are what get written by @synthesize: We are overwritting the setter method so we can save a copy for internal use
+// Overwriting setDelegate to save ViewController Delegate to cachedDelegate and set Self as New Delegate
 -(void) setDelegate:(id<OSUTableViewDelegate>)delegate{
     //Get all delegate messages
+
     //We forward ones we don't implement with forwardInvocation
-    self.osuDelegate = delegate; //Save a reference for internal use..must set this first because the next line will trigger action
+    self.cachedDelegate = delegate; //Save a reference for internal use..must set this first because the next line will trigger action
+    
     [super setDelegate:self]; //Set delegate as you would would in UITableView
 }
 
+
 -(void) setDataSource:(id<OSUTableViewDataSource>)dataSource{
-    //We connect these up directly because we don't need to intercept any datasource calls
-    self.osuDataSource = dataSource; //Might as well store reference to this too for use in this class
-    [super setDataSource:dataSource];
+    // Currently Connect directly to Standard DataSource because we don't intercept anything yet
+   
+    self.cachedDataSource = dataSource; // Might as well store reference to this too for use in this class
+    
+    [super setDataSource:dataSource];   // Set DataSource as Standard DataSource for now
 }
 
+
+
+/* Scroll View Delegate (Calls Methods when Scrolling Events Happen) */
 #pragma mark - UIScrollViewDelegate
 //This works because uitableview inherits from uiscrollview
 -(void) scrollViewDidScroll:(UIScrollView *)scrollView{    
@@ -75,7 +91,7 @@
         [self reloadData];
     }
     //Pass method to delegate if necessary
-    [self _passSelector:_cmd to:self.osuDelegate];
+    [self _passSelector:_cmd to:self.cachedDelegate];
 }
 
 //This is called when we lift our finger off the tableView
@@ -87,7 +103,7 @@
     self.state = OSUTableViewStateNone;
     
     //Pass method to delegate if necessary
-    [self _passSelector:_cmd to:self.osuDelegate];
+    [self _passSelector:_cmd to:self.cachedDelegate];
 }
 
 #pragma mark - UITableViewDelegate
@@ -97,8 +113,8 @@
         return self.addedRowHeight;
     }
     //Otherwise ask the delegate for a height to use. Optional method
-    else if([self.osuDelegate respondsToSelector:@selector(tableView:heightForRowAtIndexPath:)]){
-        return [self.osuDelegate tableView:tableView heightForRowAtIndexPath:indexPath];
+    else if([self.cachedDelegate respondsToSelector:@selector(tableView:heightForRowAtIndexPath:)]){
+        return [self.cachedDelegate tableView:tableView heightForRowAtIndexPath:indexPath];
     }
     else
         return self.rowHeight; //Lastly use our rowHeight property; This is a default in UITableView
@@ -180,7 +196,7 @@
             [self beginUpdates];
             
             //Create new cell in data source 
-            [self.osuDataSource tableView:self commitEditingStyle:UITableViewCellEditingStyleInsert forRowAtIndexPath:self.indexOfAddedCell];
+            [self.cachedDataSource tableView:self commitEditingStyle:UITableViewCellEditingStyleInsert forRowAtIndexPath:self.indexOfAddedCell];
             
             //Insert new cell with animation
             [self insertRowsAtIndexPaths:[NSArray arrayWithObject:self.indexOfAddedCell] withRowAnimation:UITableViewRowAnimationNone];
@@ -240,15 +256,15 @@
 
 
 #pragma mark - Methods Forwarding
-//These three methods are allow us to be our own delegate without taking away delegate calls for our osuDelegate
+//These three methods are allow us to be our own delegate without taking away delegate calls for our cachedDelegate
 -(BOOL)respondsToSelector:(SEL)aSelector{
-    //This makes sure that all delegate methods are supported by the osuDelegate are supported by us through message forwarding
+    //This makes sure that all delegate methods are supported by the cachedDelegate are supported by us through message forwarding
     if ([super respondsToSelector:aSelector]) {
         return YES;
     }
     else{
-        NSLog(@"Selector(%@): %@",self.osuDelegate,NSStringFromSelector(aSelector));
-        return [self.osuDelegate respondsToSelector:aSelector];
+        NSLog(@"Selector(%@): %@",self.cachedDelegate,NSStringFromSelector(aSelector));
+        return [self.cachedDelegate respondsToSelector:aSelector];
     }
 }
 
@@ -256,19 +272,21 @@
 - (void)forwardInvocation:(NSInvocation *)anInvocation
 {
     NSLog(@"Forward: %@",NSStringFromSelector(anInvocation.selector));
-    if ([self.osuDelegate respondsToSelector:[anInvocation selector]])
-        [anInvocation invokeWithTarget:self.osuDelegate];
+    if ([self.cachedDelegate respondsToSelector:[anInvocation selector]])
+        [anInvocation invokeWithTarget:self.cachedDelegate];
     else
         [super forwardInvocation:anInvocation];
 }
+
 - (NSMethodSignature*)methodSignatureForSelector:(SEL)selector
 {
     NSMethodSignature* signature = [super methodSignatureForSelector:selector];
     if (!signature) {
-        return [[self.osuDelegate class] methodSignatureForSelector:selector];
+        return [[self.cachedDelegate class] methodSignatureForSelector:selector];
     }
     return signature;
 }
+
 -(void) _passSelector:(SEL)aSelector to:(id)aReciever{
     if ([aReciever respondsToSelector:aSelector]) {
         //The following is to supress a warning you get by using performSelector: with ARC. Comment it out to try for yourself
