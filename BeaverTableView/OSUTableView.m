@@ -9,7 +9,7 @@
 #import "OSUTableView.h"
 #define PULL_HEIGHT self.rowHeight //This way the pull height can be changed as you change your row height
 
-/* PRIVATE OSUTableView INTERFACE Implementation */
+/* PRIVATE OSUTableView INTERFACE */
 @interface OSUTableView()
  
     // Private Properties
@@ -27,7 +27,7 @@
     -(void) _passSelector:(SEL)aSelector to:(id)aReciever;
     -(void) _commitDisgardCell;
 
-@end // End Private OSUTableView Interface Implementation
+@end // END PRIVATE OSUTableView INTERFACE
 
 
 /* BEGIN OSUTableView Implementation */
