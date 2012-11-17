@@ -34,7 +34,7 @@
 @implementation OSUTableView
 
 
-// Synthesize DataSource, Delegate and State
+// Synthesize Public Properties
 @synthesize cachedDataSource = _cachedDataSource, cachedDelegate = _cachedDelegate, state = _state;
 // Synthesize Private Properties
 @synthesize indexOfAddedCell = _indexOfAddedCell, addedRowHeight = _addedRowHeight, upperPointOfPinch = _upperPointOfPinch;
